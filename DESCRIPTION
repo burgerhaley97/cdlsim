@@ -1,0 +1,14 @@
+Package: cdlsim
+Title: Simulates USDA's Crop Land Data Layer
+Version: 0.0.0.9000
+Authors@R: 
+    person("Haley", "Burger", , "A02425259@usu.edu", role = c("aut", "cre"))
+Description: This package simulates the edge pixel values from a SpatRaster 
+    object on reclassified data for the USDA's Crop Land Data Layer products. 
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
