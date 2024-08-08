@@ -1,0 +1,91 @@
+# Random simulation using terra app function
+
+### outline
+# A function that takes in the original raster and tags the edges, output should be spateraster
+# this will be the already existing tag edges function, with the addition of combining
+# the original raster and tagged raster into a two layer spat raster.
+
+#' Function to identify and tag edges using the terra package
+#'
+#' @param raster The SpatRaster object representing the USDA's Cropland Data
+#'   Layer.
+#' @param edge_depth The number of cells away from the patch edge to be
+#'   considered a core cell.
+#' @returns A  2 layers raster where negative numbers represent the edge pixels.
+#' @import landscapemetrics
+#' @export
+tag_edges_2layer <- function(raster, edge_depth = 1) {
+
+  # Identify core areas, setting classes as all values that are not 0
+  core_areas <- show_cores(raster, edge_depth = edge_depth, class = unique(values(raster)[!is.na(values(raster)) & values(raster) != 0]))
+
+  # Convert core_areas data to a data frame
+  core_data <- as.data.frame(core_areas$layer_1$data)
+
+  # Initialize a new raster to tag edges and cores
+  tagged_raster <- raster
+
+  # Get cell indices for the edge coordinates
+  edge_coords <- core_data[core_data$values == 0, c("x", "y")]
+  edge_cells <- terra::cellFromXY(raster, edge_coords)
+
+  # Retrieve the original values for edge cells
+  original_values <- terra::values(raster)[edge_cells]
+
+  # Tag edges with the negative version of their original values
+  terra::values(tagged_raster)[edge_cells] <- -original_values
+
+  return(c(raster, tagged_raster))
+}
+
+
+# A function that takes in a vector of length two (a pixel value from each layer)
+# and if both pixels are positive do nothing else transition the first value of the second
+# element to a new value based on the transition matrix provided.
+
+# Transition a vector of length one based on its sign
+transition_function <- function(cell_values, transition_matrix) {
+  # Check if both cell values are positive
+  if (all(cell_values > 0)) {
+    return(cell_values[1])  # Return the first cell value unchanged
+  } else {
+    # Get the row name corresponding to the second element's value
+    row_name <- as.character(cell_values[2])
+
+    # Use the row name to get the probabilities from the transition matrix
+    probabilities <- transition_matrix[row_name, ]
+
+    # Sample a new value based on the probabilities in the transition matrix
+    new_value <- sample(as.numeric(colnames(transition_matrix)), size = 1, prob = probabilities)
+    return(new_value)
+  }
+}
+
+
+# Define the simulation function with layered output
+simulate_raster_terra <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1) {
+
+  # tag the original raster
+  tagged_raster <- tag_edges_2layer(original_raster, edge_depth)
+
+  # Create a list to hold each iteration's raster
+  layers <- vector("list", iterations)
+
+  # Initialize the simulation with the original raster
+  current_raster <- original_raster
+
+  # Run the simulation for the specified number of iterations
+  for (i in 1:iterations) {
+    # Apply the transition function to each vector of length two
+    current_raster <- app(tagged_raster,
+                          fun = function(x) transition_function(x, transition_matrix))
+
+    # Store the current state of the raster as a layer
+    layers[[i]] <- current_raster
+  }
+
+  # Combine all layers into a single SpatRaster object
+  result_raster <- rast(layers)
+
+  return(result_raster)
+}

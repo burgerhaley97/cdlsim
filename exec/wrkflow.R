@@ -60,7 +60,7 @@ plot(output_rasters[[2]], main = "Simulation 2")
 
 
 ######################################################################
-#  Example using simple two category raster
+#  Example using simple two category raster (terra sim)
 ######################################################################
 
 # make sure simulation is working
@@ -85,12 +85,9 @@ for (i in 50:79) {  # 50 to 79 makes a 30x30 square
   }
 }
 
-# Plot the raster to visualize it
-par(mfrow = c(1, 1))
-plot(r, main="Raster with Two 30x30 Class 2 Squares")
-
+# transition matrix
 confusion_matrix <- matrix(
-  c(1, 0,  # Probabilities for transition from -1
+  c(0.5, 0.5,  # Probabilities for transition from -1
     0.5,0.5),  # Probabilities for transition from -2
   nrow = 2,
   byrow = TRUE
@@ -103,13 +100,43 @@ colnames(confusion_matrix) <- c("1", "2")
 transition_matrix <- as.data.frame(confusion_matrix)
 transition_matrix
 
+# tag the edges
+r_tagged <- tag_edges_2layer(r)
+plot(r_tagged)
+
+# Apply the transition function to each cell pair
+result_raster <- app(r_tagged, fun = transition_function, transition_matrix = transition_matrix)
+
+# test that the simulation works
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 3)
+plot(test_two, main = "edge depth = 3")
+
+# hexegon like shape?
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 20)
+plot(test_two, main = "edge depth = 20")
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 30)
+plot(test_two, main = "edge depth = 30")
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 100)
+plot(test_two, main = "edge depth = 100")
+
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 120)
+plot(test_two, main = "edge depth = 120")
+test_freq <- freq(test_two)
+
+#### old deterministic way
 simple_rasters <- simulate_raster_changes(r, n_simulations = 5, confusion_matrix = transition_matrix)
 plot(simple_rasters)
 
 simple_counts <- freq(simple_rasters)
+simple_counts
+
+
 simple_counts[simple_counts$value == 2, ]
 
-r_counts <- freq(r)
+r_counts <- freq(sim)
 r_counts
 
 # Call the function with the raster and the edge mapping
@@ -224,6 +251,7 @@ categories <- list(non_ag = non_ag, alfalfa = alfalfa, major_ag = major_ag, othe
 # get the conf mat for each year based on both states
 result <- get_trans_mat(combined_data, categories)
 
+
 ###############################################################################
 #                  Example Using Iowa Data
 ###############################################################################
@@ -266,4 +294,94 @@ counts
 show_cores(ag_raster, class = c(1,2))
 
 
+###############################################################################
+#                  Example Using Iowa Data (determinisitc)
+###############################################################################
+# aggregate to 90m (clipped raster in download file)
+iowa_90 <- terra::aggregate(Iowan_test, fact = 3, fun = "modal")
+
+# define major ag category
+corn <- 1
+soy <- 5
+
+# reclassify into background = 0, non-ag = 1, ag = 2, alfalfa = 3, major_ag = 4
+corn_soy_raster <- terra::app(iowa_90, fun = function(x) {
+  ifelse(is.na(x), 0,
+         ifelse(x %in% corn, 1,
+         ifelse(x %in% soy, 2, 3)))
+})
+
+plot(corn_soy_raster, main = "corn = 1, soy = 2, other = 3")
+
+# Define 50/50 confusion matrix
+confusion_matrix <- matrix(
+  c(1, 0, 0, 0,  # Probabilities for transition from -1
+    0, 0.5, 0.5, 0,
+    0, 0.5, 0.5, 0,
+    0, 0, 0, 1),  # Probabilities for transition from -2
+  nrow = 4,
+  byrow = TRUE
+)
+# Assign row and column names
+rownames(confusion_matrix) <- c("0", "-1", "-2", "-3")
+colnames(confusion_matrix) <- c("0", "1", "2", "3")
+
+# Convert to a data frame for better readability
+transition_matrix <- as.data.frame(confusion_matrix)
+transition_matrix
+
+# Run simulation with 5 iterations
+sim_D <- simulate_raster_D(corn_soy_raster, confusion_matrix = transition_matrix)
+plot(sim_D, main = "Iowa Test Simulation deterministic")
+
+# Print the result raster
+counts <- freq(sim_test_one)
+counts
+
+
+###############################################################################
+#                  Example Using Iowa Data (random sim)
+###############################################################################
+# Run simulation with 5 iterations
+sim_D <- simulate_raster_D(r, n_simulations = 5, confusion_matrix = transition_matrix)
+plot(sim_D, main = "Iowa Test Simulation determin")
+counts <- freq(sim_D)
+counts
+
+###############################################################################
+#                  Example Using Iowa Data (terra sim)
+###############################################################################
+# Run simulation with 5 iterations
+sim_terra <- simulate_raster_terra(r, iterations = 5, transition_matrix = transition_matrix)
+plot(sim_terra, main = "Iowa Test Simulation  terra")
+counts <- freq(sim_terra)
+counts
+
+sim_terra_corn <- simulate_raster_terra(corn_soy_raster, iterations = 5, transition_matrix = transition_matrix)
+plot(sim_terra_corn)
+corn_soy <- freq(corn_soy_raster)
+corn_soy
+corn_soy <- freq(sim_terra_corn)
+corn_soy
+###############################################################################
+#                  Example Using Iowa Data (random sim)
+###############################################################################
+# Run simulation with 5 iterations
+sim_R <- simulate_raster_R(r, n_simulations = 5, confusion_matrix = transition_matrix)
+plot(sim_R, main = "Iowa Test Simulation random")
+counts <- freq(sim_R)
+counts
+plot(corn_soy_raster)
+###############################################################################
+#                  Compare Speed
+###############################################################################
+library(microbenchmark)
+
+# Perform the benchmark
+benchmark_results <- microbenchmark(
+  sim_D = simulate_raster_D(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
+  sim_terra = simulate_raster_terra(corn_soy_raster, iterations = 5, transition_matrix = transition_matrix),
+  sim_R = simulate_raster_R(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
+  times = 1000  # Number of iterations
+)
 

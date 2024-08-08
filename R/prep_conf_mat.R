@@ -1,13 +1,10 @@
-
-library(tidyr)
-library(purrr)
-
 #' Function to Read in and upzip confusion matrix files from the web
 #'
 #' @param years The years of data that you want to be downloaded.
 #' @param temp_dir The file name you want the extracted files to be stored in.
 #' @returns The raw excel books containing the confusion matrix data for
 #'    every US state's USDA Crop Land Data Layer.
+#' @importFrom utils head tail
 #' @export
 download_cdl_mat_files <- function(years, temp_dir = "extracted_files") {
   base_url <- "https://www.nass.usda.gov/Research_and_Science/Cropland/docs/"
@@ -36,7 +33,7 @@ download_cdl_mat_files <- function(years, temp_dir = "extracted_files") {
 }
 
 
-# Function to process cld confusion matrix data for utah
+# Function to process cld confusion matrix data for utah (Old)
 get_mat_data_ut <- function(output_file = "all_matrix.RData") {
 
   # Define the directory where the extracted files are stored
@@ -99,76 +96,11 @@ get_mat_data_ut <- function(output_file = "all_matrix.RData") {
   return(all_data)
 }
 
-
-############## Get ID data
-# Function to process data from already downloaded files
-get_mat_data_id <- function(output_file = "all_data.RData") {
-
-  # Define the directory where the extracted files are stored
-  extracted_dir <- file.path(getwd(), "extracted_files")
-
-  # Initialize a list to store the data
-  all_data <- list()
-
-  # List of files to process (assuming files are already extracted)
-  file_list <- list.files(path = extracted_dir, recursive = TRUE, full.names = TRUE, pattern = "\\.xlsx$")
-
-  # Function to subset a data frame
-  subset_data_frame <- function(df) {
-    df[1:256, 3:258]
-  }
-
-  # Loop through each file and process it
-  for (file in file_list) {
-    # Initialize data_file as NULL at the beginning of each iteration
-    data_file <- NULL
-
-    # Handle different formats based on the year using regex patterns
-    if (grepl("CDL_200[8-9]_accuracy_assessments/NASS_CDL_ID[0-9]{2}_accuracy_30m\\.xlsx$", file)) {
-      data_file <- file
-    } else if (grepl("CDL_201[0-5]_accuracy_assessments/NASS_CDL_ID[0-9]{2}_accuracy\\.xlsx$", file)) {
-      data_file <- file
-    } else if (grepl("CDL_2016_accuracy_assessments/unbuffered_validation/NASS_CDL_ID16_accuracy_unbuf\\.xlsx$", file)) {
-      data_file <- file
-    } else if (grepl("CDL_2017_accuracy_assessments/NASS_CDL_ID17_accuracy\\.xlsx$", file)) {
-      data_file <- file
-    } else if (grepl("NASS_CDL_ID1[89]_accuracy\\.xlsx$", file) ||
-               grepl("NASS_CDL_ID2[0-3]_accuracy\\.xlsx$", file)) {
-      data_file <- file
-    }
-
-    # Read the third sheet from the Excel file if a match is found
-    if (!is.null(data_file) && file.exists(data_file)) {
-      message("Processing: ", data_file)
-      data <- read_excel(data_file, sheet = 3)
-
-      # Subset the data
-      data <- subset_data_frame(data)
-
-      # Extract the year from the file name using regex
-      year <- sub(".*CDL_([0-9]{4}).*", "\\1", data_file)
-
-      # Store the data in the list
-      all_data[[year]] <- data
-    } else {
-      message("File does not match pattern or does not exist: ", file)
-    }
-  }
-
-  # Save the list as an RData file
-  names(all_data) <- as.character(2008:2023)
-  save(all_data, file = output_file)
-
-  # Return the all_data list for further use
-  return(all_data)
-}
-
-
 #' Function to confusion matrix data for your state of interest
 #' @param state_abbreviation A two letter abbreviation for US states.
 #' @returns The data frames representing the confusion matrices for your states
 #'    of interest for all years previously downloaded.
-#' @import dplyr
+#' @importFrom dplyr intersect union
 #' @import readxl
 #' @export
 get_mat_data <- function(state_abbreviation) {
@@ -324,3 +256,6 @@ get_trans_mat <- function(df_list, categories) {
   # Return the list of results
   return(result_list)
 }
+
+# Suppress undefined global variable warnings if 'total' is indeed a global variable
+utils::globalVariables("total")

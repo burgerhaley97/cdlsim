@@ -28,13 +28,13 @@ test_that("all values are positive", {
   tagged_raster <- tag_edges(r, edge_depth = 1)
 
   # Apply the transition probabilities
-  updated_pixel_values <- transition_pixels(values(tagged_raster), transition_matrix)
+  updated_pixel_values <- transition_pixels(terra::values(tagged_raster), transition_matrix)
 
   # Update the raster with new pixel values
-  values(tagged_raster) <- updated_pixel_values
+  terra::values(tagged_raster) <- updated_pixel_values
 
   # expect that no values in the tagged raster are negative
-  expect_true(all(values(tagged_raster) > 0))
+  expect_true(all(terra::values(tagged_raster) > 0))
 })
 
 test_that("probability is deterministic", {
@@ -44,7 +44,7 @@ test_that("probability is deterministic", {
   r <- terra::rast(nrows=100, ncols=100, xmin=0, xmax=100, ymin=0, ymax=100)
 
   # Initialize all cells with class 1
-  values(r) <- 1
+  terra::values(r) <- 1
 
   # Define coordinates for the two 30x30 squares of class 2
   # First square (top-left corner at (10, 10))

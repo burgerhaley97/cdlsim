@@ -5,14 +5,13 @@
 #' @param edge_depth The number of cells away from the patch edge to be
 #'   considered a core cell.
 #' @returns A raster where negative numbers represent the edge pixels.
-#' @import terra
 #' @import landscapemetrics
 #' @export
 tag_edges <- function(raster, edge_depth = 1) {
 
   # Identify core areas, setting classes as all values that are not 0
-  core_areas <- show_cores(raster, edge_depth = edge_depth, class = c(1,2))
-#unique(values(raster)[!is.na(values(raster)) & values(raster) != 0])
+  core_areas <- show_cores(raster, edge_depth = edge_depth, class = unique(values(raster)[!is.na(values(raster)) & values(raster) != 0]))
+
   # Convert core_areas data to a data frame and filter for classes not equal to 0
   core_data <- as.data.frame(core_areas$layer_1$data)
 
@@ -21,24 +20,19 @@ tag_edges <- function(raster, edge_depth = 1) {
 
   # Get cell indices for the edge coordinates
   edge_coords <- core_data[core_data$values == 0, c("x", "y")]
-  edge_cells <- cellFromXY(raster, edge_coords)
+  edge_cells <- terra::cellFromXY(raster, edge_coords)
 
   # Retrieve the original values for edge cells
-  original_values <- values(raster)[edge_cells]
+  original_values <- terra::values(raster)[edge_cells]
 
   # Tag edges with the negative version of their original values
-  values(tagged_raster)[edge_cells] <- -original_values
+  terra::values(tagged_raster)[edge_cells] <- -original_values
 
   return(tagged_raster)
 }
 
 
-#' Function to transition values of "edge" pixels based on confusion matrices
-#'
-#' @param pixel_values The pixel values from the tagged SpatRaster.
-#' @param confusion_matrix A confusion matrix created from get_trans_mat() that
-#'   represents the transition probabilities.
-#' @returns New pixel values for the edge pixels.
+# Function to transition values of "edge" pixels (old)
 transition_pixels <- function(pixel_values, confusion_matrix) {
   # Filter out NA values from pixel_values
   valid_indices <- !is.na(pixel_values)
@@ -70,6 +64,13 @@ transition_pixels <- function(pixel_values, confusion_matrix) {
   return(new_pixel_values)
 }
 
+#' Function to transition values of "edge" pixels based on confusion matrices
+#'
+#' @param pixel_values The pixel values from the tagged SpatRaster.
+#' @param confusion_matrix A confusion matrix created from get_trans_mat() that
+#'   represents the transition probabilities.
+#' @import terra
+#' @returns New pixel values for the edge pixels.
 # Vectorized function to transition values of pixels based on confusion matrices.
 transition_pixels <- function(pixel_values, confusion_matrix) {
   # Flatten pixel_values to ensure it's a vector
@@ -156,7 +157,7 @@ tag_and_transition <- function(input_raster, edge_depth, confusion_matrix) {
 #'   represents the transition probabilities.
 #' @returns The simulated CDL SpatRaster objects.
 #' @export
-simulate_raster_changes <- function(input_raster, edge_depth = 1, n_simulations = 10, confusion_matrix) {
+simulate_raster_D <- function(input_raster, edge_depth = 1, n_simulations = 10, confusion_matrix) {
   # Initialize a list to store the simulated rasters
   simulated_rasters <- vector("list", n_simulations)
 
