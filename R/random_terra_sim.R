@@ -89,3 +89,36 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
 
   return(result_raster)
 }
+
+# simulate using the terra app approach but also use the Rcpp transition_function
+# working need to check next time I come in
+simulate_raster_terra <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1) {
+
+  # Tag the original raster
+  tagged_raster <- tag_edges_2layer(original_raster, edge_depth)
+
+  # Extract row and column names from the transition matrix
+  row_names <- rownames(transition_matrix)
+  col_names <- colnames(transition_matrix)
+
+  # Create a list to hold each iteration's raster
+  layers <- vector("list", iterations)
+
+  # Initialize the simulation with the original raster
+  current_raster <- original_raster
+
+  # Run the simulation for the specified number of iterations
+  for (i in 1:iterations) {
+    # Apply the transition function to each vector of length two
+    current_raster <- app(tagged_raster,
+                          fun = function(x) transition_function(as.numeric(x), as.matrix(transition_matrix), row_names, col_names))
+
+    # Store the current state of the raster as a layer
+    layers[[i]] <- current_raster
+  }
+
+  # Combine all layers into a single SpatRaster object
+  result_raster <- rast(layers)
+
+  return(result_raster)
+}

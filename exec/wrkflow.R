@@ -148,6 +148,92 @@ negative_cells <- tagged_r < 0
 plot(r, main="Raster with Edges in Red", colNA="transparent")
 plot(negative_cells, add=TRUE, col=c("transparent", "red"), legend=FALSE)
 
+######################################################################
+#  Example using simple three category raster (terra sim)
+#  edge depth comparison
+######################################################################
+# Create an empty raster with dimensions 100 by 100
+r <- rast(nrows=100, ncols=100, xmin=0, xmax=100, ymin=0, ymax=100)
+
+# Initialize all cells with class 1
+values(r) <- 1
+
+# Define coordinates for the first 30x30 square of class 2
+# First square (top-left corner at (10, 10))
+for (i in 10:39) {  # 10 to 39 makes a 30x30 square
+  for (j in 10:39) {
+    r[i, j] <- 2
+  }
+}
+
+# Define coordinates for the second 30x30 square of class 3
+# Second square (top-left corner at (50, 50))
+for (i in 50:79) {  # 50 to 79 makes a 30x30 square
+  for (j in 50:79) {
+    r[i, j] <- 3
+  }
+}
+
+
+# transition matrix
+confusion_matrix <- matrix(
+  c(1/3, 1/3, 1/3,  # Probabilities for transition from -1
+    1/3, 1/3, 1/3,
+    1/3, 1/3, 1/3),  # Probabilities for transition from -2
+  nrow = 3,
+  byrow = TRUE
+)
+# Assign row and column names
+rownames(confusion_matrix) <- c("-1", "-2", "-3")
+colnames(confusion_matrix) <- c("1", "2", "3")
+
+# Convert to a data frame for better readability
+transition_matrix <- as.data.frame(confusion_matrix)
+transition_matrix
+
+# tag the edges
+r_tagged <- tag_edges_2layer(r)
+plot(r_tagged)
+
+# Apply the transition function to each cell pair
+result_raster <- app(r_tagged, fun = transition_function, transition_matrix = transition_matrix)
+
+# test that the simulation works
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 3)
+plot(test_two, main = "edge depth = 3")
+
+# hexegon like shape?
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 20)
+plot(test_two, main = "edge depth = 20")
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 120)
+plot(test_two, main = "edge depth = 120")
+
+# transition matrix
+confusion_matrix <- matrix(
+  c(1, 0, 0,  # Probabilities for transition from -1
+    0.5, 0.5, 0,
+    0.5, 0, 0.5),  # Probabilities for transition from -2
+  nrow = 3,
+  byrow = TRUE
+)
+# Assign row and column names
+rownames(confusion_matrix) <- c("-1", "-2", "-3")
+colnames(confusion_matrix) <- c("1", "2", "3")
+
+# Convert to a data frame for better readability
+transition_matrix <- as.data.frame(confusion_matrix)
+transition_matrix
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 3)
+plot(test_two, main = "edge depth = 3")
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 12)
+plot(test_two, main = "edge depth = 20")
+
+
+test_two <- simulate_raster_terra(r, transition_matrix, 5, edge_depth = 120)
+plot(test_two, main = "edge depth = 120")
 
 
 
@@ -384,4 +470,51 @@ benchmark_results <- microbenchmark(
   sim_R = simulate_raster_R(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
   times = 1000  # Number of iterations
 )
+
+###############################################################################
+#                  Test Rcpp Version of transition_function
+###############################################################################
+# make sure simulation is working
+# Create an empty raster with dimensions 100 by 100
+r <- rast(nrows=100, ncols=100, xmin=0, xmax=100, ymin=0, ymax=100)
+
+# Initialize all cells with class 1
+values(r) <- 1
+
+# Define coordinates for the two 30x30 squares of class 2
+# First square (top-left corner at (10, 10))
+for (i in 10:39) {  # 10 to 39 makes a 30x30 square
+  for (j in 10:39) {
+    r[i, j] <- 2
+  }
+}
+
+# Second square (top-left corner at (50, 50))
+for (i in 50:79) {  # 50 to 79 makes a 30x30 square
+  for (j in 50:79) {
+    r[i, j] <- 2
+  }
+}
+
+plot(r)
+
+# transition matrix
+confusion_matrix <- matrix(
+  c(0.5, 0.5,  # Probabilities for transition from -1
+    0.5,0.5),  # Probabilities for transition from -2
+  nrow = 2,
+  byrow = TRUE
+)
+# Assign row and column names
+rownames(confusion_matrix) <- c("-1", "-2")
+colnames(confusion_matrix) <- c("1", "2")
+
+# Convert to a data frame for better readability
+transition_matrix <- as.data.frame(confusion_matrix)
+transition_matrix
+
+# test sim
+sim_terra <- simulate_raster_terra(r, iterations = 5, transition_matrix = transition_matrix)
+plot(sim_terra)
+
 
