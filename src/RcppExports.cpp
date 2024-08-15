@@ -11,15 +11,15 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // transition_function
-int transition_function(NumericVector cell_values, NumericMatrix transition_matrix, CharacterVector row_names, CharacterVector col_names);
+int transition_function(NumericVector cell_values, NumericMatrix transition_matrix, IntegerVector row_names, IntegerVector col_names);
 RcppExport SEXP _cdlsim_transition_function(SEXP cell_valuesSEXP, SEXP transition_matrixSEXP, SEXP row_namesSEXP, SEXP col_namesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type cell_values(cell_valuesSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type transition_matrix(transition_matrixSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type row_names(row_namesSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type col_names(col_namesSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type row_names(row_namesSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type col_names(col_namesSEXP);
     rcpp_result_gen = Rcpp::wrap(transition_function(cell_values, transition_matrix, row_names, col_names));
     return rcpp_result_gen;
 END_RCPP

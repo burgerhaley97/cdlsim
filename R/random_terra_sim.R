@@ -17,7 +17,7 @@
 tag_edges_2layer <- function(raster, edge_depth = 1) {
 
   # Identify core areas, setting classes as all values that are not 0
-  core_areas <- show_cores(raster, edge_depth = edge_depth, class = unique(values(raster)[!is.na(values(raster)) & values(raster) != 0]))
+  core_areas <- landscapemetrics::show_cores(raster, edge_depth = edge_depth, class = unique(values(raster)[!is.na(values(raster)) & values(raster) != 0]))
 
   # Convert core_areas data to a data frame
   core_data <- as.data.frame(core_areas$layer_1$data)
@@ -35,7 +35,7 @@ tag_edges_2layer <- function(raster, edge_depth = 1) {
   # Tag edges with the negative version of their original values
   terra::values(tagged_raster)[edge_cells] <- -original_values
 
-  return(c(raster, tagged_raster))
+  return(terra::c(raster, tagged_raster))
 }
 
 
@@ -44,7 +44,7 @@ tag_edges_2layer <- function(raster, edge_depth = 1) {
 # element to a new value based on the transition matrix provided.
 
 # Transition a vector of length one based on its sign
-transition_function <- function(cell_values, transition_matrix) {
+transition_function_terra <- function(cell_values, transition_matrix) {
   # Check if both cell values are positive
   if (all(cell_values > 0)) {
     return(cell_values[1])  # Return the first cell value unchanged
@@ -77,7 +77,7 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
   # Run the simulation for the specified number of iterations
   for (i in 1:iterations) {
     # Apply the transition function to each vector of length two
-    current_raster <- app(tagged_raster,
+    current_raster <- terra::app(tagged_raster,
                           fun = function(x) transition_function(x, transition_matrix))
 
     # Store the current state of the raster as a layer
@@ -85,21 +85,21 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
   }
 
   # Combine all layers into a single SpatRaster object
-  result_raster <- rast(layers)
+  result_raster <- terra::rast(layers)
 
   return(result_raster)
 }
 
+
 # simulate using the terra app approach but also use the Rcpp transition_function
-# working need to check next time I come in
-simulate_raster_terra <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1) {
+simulate_raster_rcpp <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1) {
 
   # Tag the original raster
   tagged_raster <- tag_edges_2layer(original_raster, edge_depth)
 
   # Extract row and column names from the transition matrix
-  row_names <- rownames(transition_matrix)
-  col_names <- colnames(transition_matrix)
+  row_names <- as.integer(rownames(transition_matrix))
+  col_names <- as.integer(colnames(transition_matrix))
 
   # Create a list to hold each iteration's raster
   layers <- vector("list", iterations)
@@ -110,7 +110,7 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
   # Run the simulation for the specified number of iterations
   for (i in 1:iterations) {
     # Apply the transition function to each vector of length two
-    current_raster <- app(tagged_raster,
+    current_raster <- terra::app(tagged_raster,
                           fun = function(x) transition_function(as.numeric(x), as.matrix(transition_matrix), row_names, col_names))
 
     # Store the current state of the raster as a layer
@@ -118,7 +118,7 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
   }
 
   # Combine all layers into a single SpatRaster object
-  result_raster <- rast(layers)
+  result_raster <- terra::rast(layers)
 
   return(result_raster)
 }

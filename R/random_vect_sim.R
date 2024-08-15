@@ -34,7 +34,7 @@ tag_edges <- function(raster, edge_depth = 1) {
 
 
 # Function to transition pixel values
-transition_pixels <- function(pixel_values, confusion_matrix) {
+transition_pixels_R <- function(pixel_values, confusion_matrix) {
   unique_values <- as.numeric(rownames(confusion_matrix))
 
   new_pixel_values <- pixel_values
@@ -62,7 +62,7 @@ transition_pixels <- function(pixel_values, confusion_matrix) {
 
 # Function to process a single raster layer
 process_single_layer <- function(layer, confusion_matrix) {
-  new_values <- transition_pixels(values(layer), confusion_matrix)
+  new_values <- transition_pixels_R(values(layer), confusion_matrix)
   values(layer) <- new_values
   return(layer)
 }
@@ -70,7 +70,7 @@ process_single_layer <- function(layer, confusion_matrix) {
 # Function to tag edges and apply transitions
 tag_and_transition <- function(input_raster, edge_depth, confusion_matrix) {
   tagged_raster <- tag_edges(input_raster, edge_depth = edge_depth)
-  updated_pixel_values <- transition_pixels(values(tagged_raster), confusion_matrix)
+  updated_pixel_values <- transition_pixels_R(values(tagged_raster), confusion_matrix)
   values(tagged_raster) <- updated_pixel_values
   return(tagged_raster)
 }

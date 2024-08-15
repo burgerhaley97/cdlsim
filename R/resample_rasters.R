@@ -31,39 +31,6 @@ tag_edges <- function(raster, edge_depth = 1) {
   return(tagged_raster)
 }
 
-
-# Function to transition values of "edge" pixels (old)
-transition_pixels <- function(pixel_values, confusion_matrix) {
-  # Filter out NA values from pixel_values
-  valid_indices <- !is.na(pixel_values)
-  pixel_values <- pixel_values[valid_indices]
-
-  unique_values <- as.numeric(rownames(confusion_matrix))
-
-  # Create a vector to store updated pixel values
-  new_pixel_values <- pixel_values
-
-  for (current_class in unique_values) {
-    current_class_indices <- which(pixel_values == current_class)
-    n <- length(current_class_indices)
-
-    if (n > 0) {
-      transition_probs <- confusion_matrix[as.character(current_class), ]
-
-      new_classes <- sample(
-        x = as.numeric(colnames(confusion_matrix)),
-        size = n,
-        replace = TRUE,
-        prob = as.numeric(transition_probs)
-      )
-
-      new_pixel_values[current_class_indices] <- new_classes
-    }
-  }
-
-  return(new_pixel_values)
-}
-
 #' Function to transition values of "edge" pixels based on confusion matrices
 #'
 #' @param pixel_values The pixel values from the tagged SpatRaster.
@@ -72,7 +39,7 @@ transition_pixels <- function(pixel_values, confusion_matrix) {
 #' @import terra
 #' @returns New pixel values for the edge pixels.
 # Vectorized function to transition values of pixels based on confusion matrices.
-transition_pixels <- function(pixel_values, confusion_matrix) {
+transition_pixels_D <- function(pixel_values, confusion_matrix) {
   # Flatten pixel_values to ensure it's a vector
   pixel_values <- as.vector(pixel_values)
 
@@ -81,14 +48,16 @@ transition_pixels <- function(pixel_values, confusion_matrix) {
 
   # Get the unique classes and their frequencies
   unique_classes <- unique(pixel_values)
+  print(unique_classes)
   class_counts <- table(pixel_values)
 
-  # Generate new pixel values for each class
+  # Generate new pixel values only for negative classes
   for (class in unique_classes) {
-    # Skip classes that do not have transition probabilities defined
-    if (!as.character(class) %in% rownames(confusion_matrix)) {
+    # Only process negative classes
+    if (class >= 0) {
       next
     }
+
 
     n <- class_counts[as.character(class)]
     transition_probs <- confusion_matrix[as.character(class), ]
@@ -104,13 +73,15 @@ transition_pixels <- function(pixel_values, confusion_matrix) {
     # Adjust counts to ensure they sum to n
     difference <- n - sum(expected_counts)
     if (!is.na(difference) && difference > 0) {
-      adjustment_indices <- sample(seq_along(expected_counts), difference, replace = TRUE)
+      unique_indices <- unique(seq_along(expected_counts))
+      adjustment_indices <- sample(unique_indices, difference, replace = TRUE)
+      print(adjustment_indices)
       expected_counts[adjustment_indices] <- expected_counts[adjustment_indices] + 1
     }
 
     # Create a vector of new classes based on expected counts
     new_classes <- rep(as.numeric(colnames(confusion_matrix)), expected_counts)
-
+    print(new_classes, )
     # Shuffle the new classes to ensure randomness
     new_classes <- sample(new_classes)
 
@@ -128,7 +99,7 @@ transition_pixels <- function(pixel_values, confusion_matrix) {
 #'   represents the transition probabilities.
 #' @returns New pixel values for the edge pixels.
 process_single_layer <- function(layer, confusion_matrix) {
-  new_values <- transition_pixels(values(layer), confusion_matrix)
+  new_values <- transition_pixels_D(values(layer), confusion_matrix)
   values(layer) <- new_values
   return(layer)
 }
@@ -142,7 +113,7 @@ process_single_layer <- function(layer, confusion_matrix) {
 #'   considered a core cell.
 tag_and_transition <- function(input_raster, edge_depth, confusion_matrix) {
   tagged_raster <- tag_edges(input_raster, edge_depth = edge_depth)
-  updated_pixel_values <- transition_pixels(values(tagged_raster), confusion_matrix)
+  updated_pixel_values <- transition_pixels_D(values(tagged_raster), confusion_matrix)
   values(tagged_raster) <- updated_pixel_values
   return(tagged_raster)
 }

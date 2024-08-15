@@ -57,7 +57,7 @@ par(mfrow = c(1, 2))
 plot(output_rasters[[1]], main = "Simulation 1")
 plot(output_rasters[[2]], main = "Simulation 2")
 
-
+plot(ag_raster)
 
 ######################################################################
 #  Example using simple two category raster (terra sim)
@@ -458,18 +458,6 @@ plot(sim_R, main = "Iowa Test Simulation random")
 counts <- freq(sim_R)
 counts
 plot(corn_soy_raster)
-###############################################################################
-#                  Compare Speed
-###############################################################################
-library(microbenchmark)
-
-# Perform the benchmark
-benchmark_results <- microbenchmark(
-  sim_D = simulate_raster_D(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
-  sim_terra = simulate_raster_terra(corn_soy_raster, iterations = 5, transition_matrix = transition_matrix),
-  sim_R = simulate_raster_R(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
-  times = 1000  # Number of iterations
-)
 
 ###############################################################################
 #                  Test Rcpp Version of transition_function
@@ -500,8 +488,8 @@ plot(r)
 
 # transition matrix
 confusion_matrix <- matrix(
-  c(0.5, 0.5,  # Probabilities for transition from -1
-    0.5,0.5),  # Probabilities for transition from -2
+  c(0.9, 0.1,  # Probabilities for transition from -1
+    0.1,0.9),  # Probabilities for transition from -2
   nrow = 2,
   byrow = TRUE
 )
@@ -514,7 +502,60 @@ transition_matrix <- as.data.frame(confusion_matrix)
 transition_matrix
 
 # test sim
-sim_terra <- simulate_raster_terra(r, iterations = 5, transition_matrix = transition_matrix)
+sim_terra <- simulate_raster_rcpp(ag_raster, iterations = 5, transition_matrix = transition_matrix)
 plot(sim_terra)
 
+###############################################################################
+#                  Compare Speed
+###############################################################################
+library(microbenchmark)
+
+# Perform the benchmark
+benchmark_results <- microbenchmark(
+  sim_D = simulate_raster_D(r, n_simulations = 5, confusion_matrix = transition_matrix),
+  sim_R = simulate_raster_R(r, n_simulations = 5, confusion_matrix = transition_matrix),
+  sim_terra = simulate_raster_terra(r, iterations = 5, transition_matrix = transition_matrix),
+  sim_terra_cpp = simulate_raster_rcpp(r, iterations = 5, transition_matrix = transition_matrix),
+  times = 10  # Number of iterations
+)
+
+benchmark_results_corn_soy <- microbenchmark(
+  sim_D = simulate_raster_D(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
+  sim_R = simulate_raster_R(corn_soy_raster, n_simulations = 5, confusion_matrix = transition_matrix),
+  sim_terra = simulate_raster_terra(corn_soy_raster, iterations = 5, transition_matrix = transition_matrix),
+  sim_terra_cpp = simulate_raster_rcpp(corn_soy_raster, iterations = 5, transition_matrix = transition_matrix),
+  times = 10  # Number of iterations
+)
+
+# Define 50/50 confusion matrix
+confusion_matrix <- matrix(
+  c(1, 0, 0, 0, 0, # Probabilities for transition from -1
+    0, 0.5, 0.5, 0, 0,
+    0, 0.5, 0.5, 0, 0,
+    0, 0, 0, 1, 0,
+    0, 0.25, 0.25, 0.25, 0.25),  # Probabilities for transition from -2
+  nrow = 5,
+  byrow = TRUE
+)
+# Assign row and column names
+rownames(confusion_matrix) <- c("0", "-1", "-2", "-3", "-4")
+colnames(confusion_matrix) <- c("0", "1", "2", "3", "4")
+# Convert to a data frame for better readability
+transition_matrix <- as.data.frame(confusion_matrix)
+transition_matrix
+
+
+# sim_D = simulate_raster_D(ag_raster, n_simulations = 5, confusion_matrix = transition_matrix),
+
+# Perform the benchmark
+benchmark_results_watershed <- microbenchmark(
+  sim_R = simulate_raster_R(ag_raster, n_simulations = 5, confusion_matrix = transition_matrix),
+  sim_terra = simulate_raster_terra(ag_raster, iterations = 5, transition_matrix = transition_matrix),
+  sim_terra_cpp = simulate_raster_rcpp(ag_raster, iterations = 5, transition_matrix = transition_matrix),
+  times = 10  # Number of iterations
+)
+
+
+sim_D <- simulate_raster_D(ag_raster, n_simulations = 5, confusion_matrix = transition_matrix)
+sim_terra <- simulate_raster_terra(corn_soy_raster, iterations = 5, transition_matrix = transition_matrix)
 
