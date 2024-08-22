@@ -704,6 +704,21 @@ apply_function_to_simulations <- function(simulation_results, func) {
   return(lsm_results)
 }
 
+#                    5 -- Calculate 95% CIs
+##############################################################################
+# Assuming your tibble is named `df`
+# Calculate 95% confidence intervals by class
+confidence_intervals <- mean_patch_area %>%
+  group_by(class) %>%
+  summarize(
+    mean_value = mean(value, na.rm = TRUE),
+    # CI = mean +/- the t-crit value * standard error
+    lower_ci = mean_value - qt(0.975, df = n() - 1) * sd(value, na.rm = TRUE) / sqrt(n()),
+    upper_ci = mean_value + qt(0.975, df = n() - 1) * sd(value, na.rm = TRUE) / sqrt(n())
+  )
+
+
+
 # test function
 mp_area_all <- apply_function_to_simulations(sim_all_years, func = lsm_c_area_mn)
 print(mp_area_all)
