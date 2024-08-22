@@ -35,7 +35,7 @@ tag_edges_2layer <- function(raster, edge_depth = 1) {
   # Tag edges with the negative version of their original values
   terra::values(tagged_raster)[edge_cells] <- -original_values
 
-  return(terra::c(raster, tagged_raster))
+  return(c(raster, tagged_raster))
 }
 
 
@@ -78,7 +78,7 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
   for (i in 1:iterations) {
     # Apply the transition function to each vector of length two
     current_raster <- terra::app(tagged_raster,
-                          fun = function(x) transition_function(x, transition_matrix))
+                          fun = function(x) transition_function_terra(x, transition_matrix))
 
     # Store the current state of the raster as a layer
     layers[[i]] <- current_raster
@@ -90,35 +90,45 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
   return(result_raster)
 }
 
-
 # simulate using the terra app approach but also use the Rcpp transition_function
-simulate_raster_rcpp <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1) {
+simulate_raster_rcpp <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1, background_trans = FALSE) {
+
+  # make sure this argument is a matrix
+  transition_matrix <- as.matrix(transition_matrix)
+
+  # don't simulate background values (0) if FALSE
+  # or the first entry in the matrix could be 1 so 100% of 0 goes to 0
+  if (!background_trans) {
+    # Insert a row of 0s at the top of the transition_matrix
+    transition_matrix <- rbind(0, transition_matrix)
+    # Insert a column of 0s at the left of the transition_matrix
+    transition_matrix <- cbind(0, transition_matrix)
+
+    # Set the first row name and column name to 0
+    rownames(transition_matrix) <- c(0, rownames(transition_matrix)[-1])
+    colnames(transition_matrix) <- c(0, colnames(transition_matrix)[-1])
+  }
 
   # Tag the original raster
   tagged_raster <- tag_edges_2layer(original_raster, edge_depth)
 
   # Extract row and column names from the transition matrix
+  # Define vars for use in the app function
   row_names <- as.integer(rownames(transition_matrix))
   col_names <- as.integer(colnames(transition_matrix))
+  iterations <- as.integer(iterations)
 
-  # Create a list to hold each iteration's raster
-  layers <- vector("list", iterations)
 
   # Initialize the simulation with the original raster
   current_raster <- original_raster
 
-  # Run the simulation for the specified number of iterations
-  for (i in 1:iterations) {
-    # Apply the transition function to each vector of length two
-    current_raster <- terra::app(tagged_raster,
-                          fun = function(x) transition_function(as.numeric(x), as.matrix(transition_matrix), row_names, col_names))
+  # create the raster with correct number of iterations directly
+  current_raster <- terra::app(tagged_raster,fun = transition_function,
+                                   transition_matrix = transition_matrix,
+                                    row_names = row_names,
+                                   col_names= col_names,
+                                   iterations = iterations)
 
-    # Store the current state of the raster as a layer
-    layers[[i]] <- current_raster
-  }
-
-  # Combine all layers into a single SpatRaster object
-  result_raster <- terra::rast(layers)
-
-  return(result_raster)
+  return(current_raster)
 }
+

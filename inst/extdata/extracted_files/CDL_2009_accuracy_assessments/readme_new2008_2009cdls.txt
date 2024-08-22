@@ -1,0 +1,3 @@
+NEW 2008 AND 2009 CROPLAND DATA LAYERS (12/11/2017)
+
+The 2008 and 2009 Cropland Data Layers (CDL) for the entire Continental United States have been reprocessed and re-released at a 30 meter spatial resolution to best match the products from 2010 forward. The move from 56m to 30m resolution was made possible with the inclusion of Landsat 5 Thematic Mapper data, which was not freely available during the initial processing period. Additionally, the reprocessing effort used more complete Farm Service Agency administrative data for training and accuracy assessing the classifications. More detailed information will be posted on our Frequently Asked Questions at: https://www.nass.usda.gov/Research_and_Science/Cropland/sarsfaqs2.php

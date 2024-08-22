@@ -108,7 +108,7 @@ get_mat_data <- function(state_abbreviation) {
   state_abbreviation <- toupper(state_abbreviation)
 
   # Define the directory where the extracted files are stored
-  extracted_dir <- file.path(getwd(), "extracted_files")
+  extracted_dir <- file.path(getwd(), "extdata/extracted_files")
 
   # Initialize a list to store the data
   all_data <- list()
@@ -257,5 +257,86 @@ get_trans_mat <- function(df_list, categories) {
   return(result_list)
 }
 
+#' Function to format the confusion matrices as transition matrices
+#' @param df_list A list of lists of data frames extracted using get_mat_data(). Each sublist should contain two or more data frames to be summed.
+#' @param categories A list of categories defining the numbers between 1 and 256.
+#' @returns A list of data frames where row names represent pixels that will
+#'    transition and column names represent the class they will transition to.
+#' @import dplyr
+#' @export
+get_trans_mat_gen <- function(df_list, categories) {
+
+  # Check if the input is a list of lists of data frames and if it contains data frames
+  if (length(df_list) == 0 || !all(sapply(df_list, function(x) all(sapply(x, is.data.frame))))) {
+    stop("Input must be a list of lists, each containing data frames")
+  }
+
+  # Flatten the categories and check for duplicates and completeness
+  all_category_numbers <- unlist(categories)
+
+  # Check for duplicates
+  if (any(duplicated(all_category_numbers))) {
+    stop("There are duplicate numbers in the list of vectors describing the categories")
+  }
+
+  # Check for completeness (1 to 256)
+  if (!all(sort(all_category_numbers) == 1:256)) {
+    stop("Not all numbers between 1 and 256 are included in the list of vectors describing the categories")
+  }
+
+  # Initialize a list to store the results for each position in the sublists
+  result_list <- vector("list", length(df_list[[1]]))
+
+  # Iterate over each position in the sublists
+  for (k in seq_along(result_list)) {
+    # Sum the matrices from all data frames at the same position across all sublists
+    sum_mat <- Reduce(`+`, lapply(df_list, function(x) as.matrix(x[[k]])))
+
+    # Convert the summed matrix back to a data frame
+    df <- as.data.frame(sum_mat)
+
+    # Initialize an empty matrix to store the category sums
+    category_matrix <- matrix(0, nrow = length(categories), ncol = length(categories))
+
+    # Sum rows and columns for each category based on the provided vectors
+    for (i in seq_along(categories)) {
+      for (j in seq_along(categories)) {
+        category_rows <- df %>%
+          slice(categories[[i]]) %>%
+          summarize(across(everything(), sum))
+
+        category_sum <- category_rows %>%
+          select(all_of(categories[[j]])) %>%
+          summarize(across(everything(), sum))
+
+        category_matrix[i, j] <- sum(category_sum)
+      }
+    }
+
+    # Convert the matrix to a data frame
+    df_trans <- as.data.frame(category_matrix)
+
+    # Calculate total and proportions
+    df_trans <- df_trans %>%
+      mutate(total = rowSums(across(everything()))) %>%
+      mutate(across(-total, ~ . / total))
+
+    # Update row names to be the negative value of the row number
+    rownames(df_trans) <- as.character(-(1:nrow(df_trans)))
+
+    # Update column names to be the column numbers
+    colnames(df_trans) <- as.character(1:ncol(df_trans))
+
+    # Remove the last column
+    df_trans <- df_trans[, -ncol(df_trans)]
+
+    # Store the resulting data frame in the result list
+    result_list[[k]] <- df_trans
+  }
+
+  # Return the list of results
+  return(result_list)
+}
+
 # Suppress undefined global variable warnings if 'total' is indeed a global variable
-utils::globalVariables("total")
+# utils::globalVariables("total")
