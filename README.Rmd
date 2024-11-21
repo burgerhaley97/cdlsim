@@ -1,0 +1,100 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# cdlsim
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of cdlsim is to simulate USDA CDL data to quantify the sensitivity of metrics calculated on it. The R package landscapemetrics is used to implement popular FRAGSTATS style metrics in R. 
+
+## Installation
+
+You can install the development version of cdlsim from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("burgerhaley97/cdlsim")
+```
+
+## Example
+
+This is a basic example which shows how a simple landscape would behave in our 
+simulation:
+
+```{r example}
+library(cdlsim)
+ 
+ # Create a skeleton for the SpatRaster example landscape
+ r <- terra::rast(nrows=100, ncols=100, xmin=0, xmax=100, ymin=0, ymax=100)
+
+  # Initialize all cells with class 1
+  terra::values(r) <- 1
+
+  # Define coordinates for the two 30x30 squares of class 2
+  # First square (top-left corner at (10, 10))
+  for (i in 10:39) {  # 10 to 39 makes a 30x30 square
+    for (j in 10:39) {
+      r[i, j] <- 2
+    }
+  }
+
+  # Second square (top-left corner at (50, 50))
+  for (i in 50:79) {  # 50 to 79 makes a 30x30 square
+    for (j in 50:79) {
+      r[i, j] <- 2
+    }
+  }
+  
+  # Look at the landscape
+  plot(r, main = "Landscape")
+  
+  # Make conf mat with with equal change of transitioning 
+  n <- 3
+  trans_mat <- matrix(1/3, nrow = n, ncol = n)
+
+  # Assign row and column names
+  rownames(trans_mat) <- c("1", "2", "3")
+  colnames(trans_mat) <- c("1", "2", "3")
+  
+  # Look at the transition matrix
+  print(trans_mat)
+
+  # Simulate the input SpatRaster 5 times
+  patch_sim <- simulate_raster_patch(original_raster = r,
+                                       transition_matrix = conf_mat,
+                                       iterations = 5)
+  
+  # look at the results of 5 simulation of our landscape
+  plot(patch_sim)
+
+
+```
+
+What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+
+```{r cars}
+summary(cars)
+```
+
+You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+
+You can also embed plots, for example:
+
+```{r pressure, echo = FALSE}
+plot(pressure)
+```
+
+In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.

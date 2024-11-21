@@ -1,45 +1,119 @@
-test_that("all values are positive", {
-  # test the function that transitions the edge pixels doesn't leave any
-  # negative (edge) values
+test_that("sim diversity does not exceed max of input raster", {
+  # test that in the case where the input raster is at max diversity that the
+  # the simulation's max diversity doesn't exceed the input.
 
-  # Create a sample raster using the terra package for demonstration
-  set.seed(135799)
-  r <- terra::rast(ncol=10, nrow=10)
-  terra::values(r) <- sample(1:4, terra::ncell(r), replace=TRUE)
+  #### Make the large max diversity raster
+  # Set parameters
+  n_classes <- 3        # Number of classes
+  square_size <- 30     # Each square is 30x30 pixels
+  n_squares <- 9        # 9x9 grid of squares
 
-  # Create a confusion matrix with transition probabilities
-  confusion_matrix <- matrix(
-    c(0.1, 0.2, 0.3, 0.4,  # Probabilities for transition from -1
-      0.3, 0.2, 0.4, 0.1,  # Probabilities for transition from -2
-      0.25, 0.25, 0.25, 0.25,  # Probabilities for transition from -3
-      0.4, 0.3, 0.2, 0.1),  # Probabilities for transition from -4
-    nrow = 4,
-    byrow = TRUE
-  )
+  # Calculate raster dimensions
+  ncol <- square_size * n_squares   # Width to fit 9 squares across
+  nrow <- square_size * n_squares   # Height to fit 9 squares down
+
+  # Create an empty raster
+  rbig <- terra::rast(ncol = ncol, nrow = nrow)
+  terra::values(rbig) <- NA  # Initialize with NA values
+
+  # Assign alternating class values to each square in a checkerboard pattern
+  for (i in 1:n_squares) {
+    for (j in 1:n_squares) {
+      # Define square boundaries
+      row_start <- (i - 1) * square_size + 1
+      row_end <- i * square_size
+      col_start <- (j - 1) * square_size + 1
+      col_end <- j * square_size
+
+      # Calculate class value based on row and column position, alternating classes
+      class_value <- ((i + j - 2) %% n_classes) + 1  # Alternates classes 1, 2, and 3 in a checkerboard pattern
+
+      # Assign values to the defined square region
+      rbig[row_start:row_end, col_start:col_end] <- class_value
+    }
+  }
+
+  # Define confusion matrix, background not transitioning
+  conf_mat <- matrix(1/3, nrow = 3, ncol = 3)
 
   # Assign row and column names
-  rownames(confusion_matrix) <- c("-1", "-2", "-3", "-4")
-  colnames(confusion_matrix) <- c("1", "2", "3", "4")
+  rownames(conf_mat) <- c( "1", "2", "3")
+  colnames(conf_mat) <- c( "1", "2", "3")
 
-  # Convert to a data frame for better readability
-  transition_matrix <- as.data.frame(confusion_matrix)
+  # create 5 simulations with class not transitioning
+  div_sim <- simulate_raster_patch(original_raster = rbig,
+                                     transition_matrix = conf_mat,
+                                     iterations = 10)
 
-  # Call the function with the raster and the edge mapping
-  tagged_raster <- tag_edges(r, edge_depth = 1)
+  # calculate Shannon's diversity using the landscapemetrics package
+  shdi_sim <- landscapemetrics::lsm_l_sidi(div_sim)
+  interval <- quantile(shdi_sim$value, c(0.025, 0.5, 0.975))
+  shdi_sim_int <- dplyr::as_tibble(interval) |>
+    dplyr::mutate(quantile = c(2.5, 50, 97.5)) |>
+    dplyr::filter(quantile == 97.5) |>
+    dplyr::pull(value)
 
-  # Apply the transition probabilities
-  updated_pixel_values <- transition_pixels(terra::values(tagged_raster), transition_matrix)
+  shdi_og <- landscapemetrics::lsm_l_shdi(rbig) |>
+    dplyr::pull(value)
 
-  # Update the raster with new pixel values
-  terra::values(tagged_raster) <- updated_pixel_values
-
-  # expect that no values in the tagged raster are negative
-  expect_true(all(terra::values(tagged_raster) > 0))
+  # expect that the og div value is always bigger than the max sim value
+  expect_true(shdi_og > shdi_sim_int)
 })
 
-test_that("probability is deterministic", {
+test_that("Non-transitions maintain pixel count", {
   # test that the simulated rasters have the correct number cells in a class.
 
+  #### Make the smaller max diversity raster
+  # Define raster dimensions and classes
+  ncol <- 90
+  nrow <- 90
+  classes <- 3
+
+  # Initialize a SpatRaster with the desired dimensions
+  r <- terra::rast(ncol = ncol, nrow = nrow, vals = NA)
+
+  # Assign values in 30x30 blocks for each class
+  r[1:30, 1:30] <- 1  # Top-left 30x30 block
+  r[1:30, 31:60] <- 2  # Top-center 30x30 block
+  r[1:30, 61:90] <- 3  # Top-right 30x30 block
+
+  r[31:60, 1:30] <- 2  # Middle-left 30x30 block
+  r[31:60, 31:60] <- 3  # Middle-center 30x30 block
+  r[31:60, 61:90] <- 1  # Middle-right 30x30 block
+
+  r[61:90, 1:30] <- 3  # Bottom-left 30x30 block
+  r[61:90, 31:60] <- 1  # Bottom-center 30x30 block
+  r[61:90, 61:90] <- 2  # Bottom-right 30x30 block
+
+  # Define confusion matrix, background not transitioning
+  conf_mat <- matrix(1/3, nrow = 3, ncol = 3)
+
+  # Assign row and column names
+  rownames(conf_mat) <- c( "1", "2", "3")
+  colnames(conf_mat) <- c( "1", "2", "3")
+  conf_mat[1, ] <- 0
+  conf_mat[ , 1] <- 0
+  conf_mat[1, 1] <- 1
+
+
+  # create 5 simulations with class not transitioning
+  class_sim <- simulate_raster_patch(original_raster = r,
+                                     transition_matrix = conf_mat,
+                                     iterations = 1)
+
+  # check that freq of input out sims are the same for class 1
+  og_counts <- terra::freq(r)
+  class_1_og <- og_counts[og_counts$value == 1, 3]
+
+  sim_counts <- terra::freq(class_sim)
+  class_1_sim <- sim_counts[sim_counts$value == 1, 3]
+
+  # expect that no values in the tagged raster are negative
+  expect_equal(class_1_og, class_1_sim)
+})
+
+test_that("no pixels are dropped", {
+  # Still need to check this test
   # Create an empty raster with dimensions 100 by 100
   r <- terra::rast(nrows=100, ncols=100, xmin=0, xmax=100, ymin=0, ymax=100)
 
@@ -61,27 +135,25 @@ test_that("probability is deterministic", {
     }
   }
 
-  confusion_matrix <- matrix(
-    c(1, 0,  # Probabilities for transition from -1
-      0.5,0.5),  # Probabilities for transition from -2
-    nrow = 2,
-    byrow = TRUE
-  )
+  # Make conf mat with 1s on diagonal
+  n <- 3
+  conf_mat <- matrix(0, nrow = n, ncol = n)
+  diag(conf_mat) <- 1
+
   # Assign row and column names
-  rownames(confusion_matrix) <- c("-1", "-2")
-  colnames(confusion_matrix) <- c("1", "2")
+  rownames(conf_mat) <- c("1", "2", "3")
+  colnames(conf_mat) <- c("1", "2", "3")
+  conf_mat
 
-  # Convert to a data frame for better readability
-  transition_matrix <- as.data.frame(confusion_matrix)
+  patch_sim <- simulate_raster_patch(original_raster = r,
+                                       transition_matrix = conf_mat,
+                                       iterations = 1)
 
-  simple_rasters <- simulate_raster_changes(r, n_simulations = 5, confusion_matrix = transition_matrix)
-  simple_counts <- freq(simple_rasters)
-  class <- simple_counts[simple_counts$value == 2, ]
 
-  # vector of lengths
-  expected_counts <- rep(1684,times =5)
+  mismatch_mask <- r != patch_sim
+
 
   # expect that no values in the tagged raster are negative
-  expect_equal(class$count, expected_counts)
+  expect_equal(sum(terra::values(mismatch_mask)), 0)
 })
 

@@ -2,18 +2,18 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 transition_function_single <- function(cell_values, transition_matrix, row_names, col_names) {
-    .Call('_cdlsim_transition_function_single', PACKAGE = 'cdlsim', cell_values, transition_matrix, row_names, col_names)
+    .Call(`_cdlsim_transition_function_single`, cell_values, transition_matrix, row_names, col_names)
 }
 
 transition_function <- function(cell_values, transition_matrix, row_names, col_names, iterations) {
-    .Call('_cdlsim_transition_function', PACKAGE = 'cdlsim', cell_values, transition_matrix, row_names, col_names, iterations)
+    .Call(`_cdlsim_transition_function`, cell_values, transition_matrix, row_names, col_names, iterations)
 }
 
-transition_function_rcpp <- function(cell_values_matrix, transition_matrix, row_names, col_names, iterations) {
-    .Call('_cdlsim_transition_function_rcpp', PACKAGE = 'cdlsim', cell_values_matrix, transition_matrix, row_names, col_names, iterations)
+transition_patches <- function(cell_values, neg_values, trans_vecs, iterations) {
+    .Call(`_cdlsim_transition_patches`, cell_values, neg_values, trans_vecs, iterations)
 }
 
-transition_function_app <- function(cell_values, transition_matrix, row_names, col_names) {
-    .Call('_cdlsim_transition_function_app', PACKAGE = 'cdlsim', cell_values, transition_matrix, row_names, col_names)
+transition_patches_random <- function(cell_values, trans_vecs, iterations) {
+    .Call(`_cdlsim_transition_patches_random`, cell_values, trans_vecs, iterations)
 }
 

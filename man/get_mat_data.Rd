@@ -2,17 +2,20 @@
 % Please edit documentation in R/prep_conf_mat.R
 \name{get_mat_data}
 \alias{get_mat_data}
-\title{Function to confusion matrix data for your state of interest}
+\title{Function to retrieve confusion matrix data for multiple states of interest}
 \usage{
-get_mat_data(state_abbreviation)
+get_mat_data(state_abbreviation, file_path = "inst/extdata/extracted_files")
 }
 \arguments{
-\item{state_abbreviation}{A two letter abbreviation for US states.}
+\item{state_abbreviation}{A vector of two-letter abbreviations for US states.}
+
+\item{file_path}{The path to the directory where files are stored
+(default is "inst/extdata/extracted_files").}
 }
 \value{
-The data frames representing the confusion matrices for your states
-of interest for all years previously downloaded.
+A named list where each element is a list of data frames representing
+confusion matrices for each state.
 }
 \description{
-Function to confusion matrix data for your state of interest
+Function to retrieve confusion matrix data for multiple states of interest
 }

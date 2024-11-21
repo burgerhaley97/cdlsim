@@ -39,32 +39,30 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// transition_function_rcpp
-IntegerVector transition_function_rcpp(NumericMatrix cell_values_matrix, NumericMatrix transition_matrix, IntegerVector row_names, IntegerVector col_names, int iterations);
-RcppExport SEXP _cdlsim_transition_function_rcpp(SEXP cell_values_matrixSEXP, SEXP transition_matrixSEXP, SEXP row_namesSEXP, SEXP col_namesSEXP, SEXP iterationsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericMatrix >::type cell_values_matrix(cell_values_matrixSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type transition_matrix(transition_matrixSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type row_names(row_namesSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type col_names(col_namesSEXP);
-    Rcpp::traits::input_parameter< int >::type iterations(iterationsSEXP);
-    rcpp_result_gen = Rcpp::wrap(transition_function_rcpp(cell_values_matrix, transition_matrix, row_names, col_names, iterations));
-    return rcpp_result_gen;
-END_RCPP
-}
-// transition_function_app
-int transition_function_app(NumericVector cell_values, NumericMatrix transition_matrix, IntegerVector row_names, IntegerVector col_names);
-RcppExport SEXP _cdlsim_transition_function_app(SEXP cell_valuesSEXP, SEXP transition_matrixSEXP, SEXP row_namesSEXP, SEXP col_namesSEXP) {
+// transition_patches
+IntegerVector transition_patches(NumericVector cell_values, NumericVector neg_values, List trans_vecs, int iterations);
+RcppExport SEXP _cdlsim_transition_patches(SEXP cell_valuesSEXP, SEXP neg_valuesSEXP, SEXP trans_vecsSEXP, SEXP iterationsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type cell_values(cell_valuesSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type transition_matrix(transition_matrixSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type row_names(row_namesSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type col_names(col_namesSEXP);
-    rcpp_result_gen = Rcpp::wrap(transition_function_app(cell_values, transition_matrix, row_names, col_names));
+    Rcpp::traits::input_parameter< NumericVector >::type neg_values(neg_valuesSEXP);
+    Rcpp::traits::input_parameter< List >::type trans_vecs(trans_vecsSEXP);
+    Rcpp::traits::input_parameter< int >::type iterations(iterationsSEXP);
+    rcpp_result_gen = Rcpp::wrap(transition_patches(cell_values, neg_values, trans_vecs, iterations));
+    return rcpp_result_gen;
+END_RCPP
+}
+// transition_patches_random
+IntegerVector transition_patches_random(NumericVector cell_values, List trans_vecs, int iterations);
+RcppExport SEXP _cdlsim_transition_patches_random(SEXP cell_valuesSEXP, SEXP trans_vecsSEXP, SEXP iterationsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type cell_values(cell_valuesSEXP);
+    Rcpp::traits::input_parameter< List >::type trans_vecs(trans_vecsSEXP);
+    Rcpp::traits::input_parameter< int >::type iterations(iterationsSEXP);
+    rcpp_result_gen = Rcpp::wrap(transition_patches_random(cell_values, trans_vecs, iterations));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -72,8 +70,8 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_cdlsim_transition_function_single", (DL_FUNC) &_cdlsim_transition_function_single, 4},
     {"_cdlsim_transition_function", (DL_FUNC) &_cdlsim_transition_function, 5},
-    {"_cdlsim_transition_function_rcpp", (DL_FUNC) &_cdlsim_transition_function_rcpp, 5},
-    {"_cdlsim_transition_function_app", (DL_FUNC) &_cdlsim_transition_function_app, 4},
+    {"_cdlsim_transition_patches", (DL_FUNC) &_cdlsim_transition_patches, 4},
+    {"_cdlsim_transition_patches_random", (DL_FUNC) &_cdlsim_transition_patches_random, 3},
     {NULL, NULL, 0}
 };
 

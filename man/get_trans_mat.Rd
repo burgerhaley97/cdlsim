@@ -7,7 +7,7 @@
 get_trans_mat(df_list, categories)
 }
 \arguments{
-\item{df_list}{The list of data frames extracted using get_mat_data()}
+\item{df_list}{A list of lists of data frames extracted using get_mat_data(). Each sublist should contain two or more data frames to be summed.}
 
 \item{categories}{A list of categories defining the numbers between 1 and 256.}
 }

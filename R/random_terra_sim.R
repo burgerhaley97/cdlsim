@@ -17,7 +17,9 @@
 tag_edges_2layer <- function(raster, edge_depth = 1) {
 
   # Identify core areas, setting classes as all values that are not 0
-  core_areas <- landscapemetrics::show_cores(raster, edge_depth = edge_depth, class = unique(values(raster)[!is.na(values(raster)) & values(raster) != 0]))
+  core_areas <- landscapemetrics::show_cores(raster, edge_depth = edge_depth)
+
+  # class = unique(values(raster)[!is.na(values(raster)) & values(raster) != 0]
 
   # Convert core_areas data to a data frame
   core_data <- as.data.frame(core_areas$layer_1$data)
@@ -91,22 +93,40 @@ simulate_raster_terra <- function(original_raster, transition_matrix, iterations
 }
 
 # simulate using the terra app approach but also use the Rcpp transition_function
-simulate_raster_rcpp <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1, background_trans = FALSE) {
+simulate_raster_rcpp <- function(original_raster, transition_matrix, iterations = 10, edge_depth = 1,
+                                 background_value = 0, background_trans = FALSE) {
 
-  # make sure this argument is a matrix
+  # Ensure transition_matrix is a matrix
   transition_matrix <- as.matrix(transition_matrix)
 
-  # don't simulate background values (0) if FALSE
-  # or the first entry in the matrix could be 1 so 100% of 0 goes to 0
   if (!background_trans) {
-    # Insert a row of 0s at the top of the transition_matrix
-    transition_matrix <- rbind(0, transition_matrix)
-    # Insert a column of 0s at the left of the transition_matrix
-    transition_matrix <- cbind(0, transition_matrix)
+    if (background_value != 0) {
+      # Find the position of background_value in the matrix
+      row_idx <- which(as.integer(rownames(transition_matrix)) == background_value)
+      col_idx <- which(as.integer(colnames(transition_matrix)) == background_value)
 
-    # Set the first row name and column name to 0
-    rownames(transition_matrix) <- c(0, rownames(transition_matrix)[-1])
-    colnames(transition_matrix) <- c(0, colnames(transition_matrix)[-1])
+      if (length(row_idx) > 0 && length(col_idx) > 0) {
+        # Insert a row of 1 at the position of background_value
+        new_row <- rep(0, ncol(transition_matrix) + 1)
+        new_row[1] <- 1
+        transition_matrix <- rbind(transition_matrix[1:(row_idx - 1), ], new_row, transition_matrix[row_idx:nrow(transition_matrix), ])
+
+        # Insert a column of 0s at the position of background_value
+        new_col <- rep(0, nrow(transition_matrix))
+        transition_matrix <- cbind(transition_matrix[, 1:(col_idx - 1)], new_col, transition_matrix[, col_idx:ncol(transition_matrix)])
+
+        # Set the row and column names
+        rownames(transition_matrix) <- c(rownames(transition_matrix)[1:(row_idx - 1)], background_value, rownames(transition_matrix)[row_idx:(nrow(transition_matrix) - 1)])
+        colnames(transition_matrix) <- c(colnames(transition_matrix)[1:(col_idx - 1)], background_value, colnames(transition_matrix)[col_idx:(ncol(transition_matrix) - 1)])
+      }
+    } else {
+      # If background_value is 0, retain current behavior
+      transition_matrix <- rbind(0, transition_matrix)
+      transition_matrix <- cbind(0, transition_matrix)
+
+      rownames(transition_matrix) <- c(0, rownames(transition_matrix)[-1])
+      colnames(transition_matrix) <- c(0, colnames(transition_matrix)[-1])
+    }
   }
 
   # Tag the original raster
