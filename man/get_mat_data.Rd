@@ -4,13 +4,19 @@
 \alias{get_mat_data}
 \title{Function to retrieve confusion matrix data for multiple states of interest}
 \usage{
-get_mat_data(state_abbreviation, file_path = "inst/extdata/extracted_files")
+get_mat_data(
+  state_abbreviation,
+  file_path = "inst/extdata/extracted_files",
+  verbose = FALSE
+)
 }
 \arguments{
 \item{state_abbreviation}{A vector of two-letter abbreviations for US states.}
 
 \item{file_path}{The path to the directory where files are stored
 (default is "inst/extdata/extracted_files").}
+
+\item{verbose}{The stops the messages from printng to the console.}
 }
 \value{
 A named list where each element is a list of data frames representing

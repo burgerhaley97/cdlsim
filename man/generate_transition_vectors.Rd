@@ -11,6 +11,8 @@ generate_transition_vectors(r, transition_matrix, iterations = 10)
 class.}
 
 \item{transition_matrix}{The transition matrix you want to use.}
+
+\item{iterations}{The number of iterations desired.}
 }
 \value{
 A matrix of vector for each patch in each layer.

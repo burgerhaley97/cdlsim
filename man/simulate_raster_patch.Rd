@@ -4,12 +4,21 @@
 \alias{simulate_raster_patch}
 \title{Function to simulate tagged patch values in a single layer spatraster.}
 \usage{
-simulate_raster_patch(original_raster, transition_matrix, iterations = 10)
+simulate_raster_patch(
+  original_raster,
+  transition_matrix,
+  non_trans = 0,
+  iterations = 10
+)
 }
 \arguments{
 \item{original_raster}{The SpatRaster object representing the categorical data.}
 
-\item{transition_matrix}{Transition matrix values that define transitions based on class values.}
+\item{transition_matrix}{Transition matrix values that define transitions
+based on class values.}
+
+\item{non_trans}{Class(es) that the user would like to remain unsimulated.
+Defualt is class 0 since this is the background class.}
 
 \item{iterations}{The number of simulations to be performed.}
 }

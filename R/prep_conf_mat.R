@@ -1,3 +1,5 @@
+utils::globalVariables("total")
+
 #' Function to Read in and upzip confusion matrix files from the web
 #'
 #' @param years The years of data that you want to be downloaded.
@@ -37,17 +39,19 @@ download_cdl_mat_files <- function(years, temp_dir = "extracted_files") {
 #' @param state_abbreviation A vector of two-letter abbreviations for US states.
 #' @param file_path The path to the directory where files are stored
 #'    (default is "inst/extdata/extracted_files").
+#' @param verbose The stops the messages from printng to the console.
 #' @return A named list where each element is a list of data frames representing
 #'    confusion matrices for each state.
 #' @importFrom dplyr intersect union
+#' @importFrom stats na.omit
 #' @import readxl
 #' @export
-get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted_files") {
+get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted_files", verbose = FALSE) {
   # Ensure all state abbreviations are uppercase
   state_abbreviation <- toupper(state_abbreviation)
 
-  # Define the directory where the extracted files are stored
-  extracted_dir <- file.path(getwd(), file_path)
+  # Use system.file() to correctly locate the installed files
+  extracted_dir <- system.file("extdata/extracted_files", package = "cdlsim")
 
   # List of files to process (assuming files are already extracted)
   file_list <- list.files(path = extracted_dir, recursive = TRUE, full.names = TRUE, pattern = "\\.xlsx$")
@@ -86,19 +90,19 @@ get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted
 
       # Read the third sheet from the Excel file if a match is found
       if (!is.null(data_file) && file.exists(data_file)) {
-        message("Processing: ", data_file)
-        data <- read_excel(data_file, sheet = 3)
+        if (verbose) message("Processing: ", data_file)
+        data <- readxl::read_excel(data_file, sheet = 3, .name_repair = "minimal")
 
-        # Subset the data
-        data <- subset_data_frame(data)
+        # Subset the data to the required range
+        data <- data[1:256, 3:258]
 
-        # Extract the year from the file name using regex
+        # Extract the year from the file name
         year_match <- sub(".*([0-9]{2})_accuracy.*\\.xlsx$", "\\1", data_file)
         year <- ifelse(length(year_match) > 0, year_match, "Unknown Year")
 
-        # Store the data in the state_data list with year as the key
+        # Store the data in the state_data list
         state_data[[year]] <- data
-      } else {
+      } else if (verbose) {
         message("File does not match pattern or does not exist: ", file)
       }
     }
@@ -117,14 +121,15 @@ get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted
 }
 
 ## update for the case when the list of categories is the same as the length list of
-# orignal classes
+# original classes
 #' Function to format the confusion matrices as transition matrices
 #' @param df_list A list of lists of data frames extracted using get_mat_data(). Each sublist should contain two or more data frames to be summed.
 #' @param categories A list of categories defining the numbers between 1 and 256.
 #' @returns A list of data frames where row names represent pixels that will
 #'    transition and column names represent the class they will transition to.
 #' @import dplyr
-get_trans_mat <- function(df_list, categories) {
+#' @importFrom stats na.omit
+get_trans_mat_dep <- function(df_list, categories) {
   # Check if the input is a list of lists of data frames and if it contains data frames
   if (length(df_list) == 0 || !all(sapply(df_list, function(x) all(sapply(x, is.data.frame))))) {
     stop("Input must be a list of lists, each containing data frames")
@@ -190,11 +195,195 @@ get_trans_mat <- function(df_list, categories) {
     # Remove the last column
     df_trans <- df_trans[, -ncol(df_trans)]
 
+
+    # Insert a row and column of zeros at the first positions
+    n <- nrow(df_trans) + 1  # Updated number of rows and columns
+    updated_matrix <- matrix(0, nrow = n, ncol = n)
+    updated_matrix[-1, -1] <- as.matrix(df_trans)  # Fill with existing values
+
+    # Convert the updated matrix back to a data frame
+    updated_matrix[1, 1] <- 1
+    df_trans_updated <- as.data.frame(updated_matrix)
+
+    # Update row and column names for the new matrix
+    rownames(df_trans_updated) <- as.character(0:(n - 1))
+    colnames(df_trans_updated) <- as.character(0:(n - 1))
+
+    # Store the resulting data frame for this year
+    result_list[[k]] <- df_trans_updated
+  }
+
+  # Return the list of results
+  return(result_list)
+}
+
+
+#' Function to format the confusion matrices as transition matrices
+#' @param df_list A single data frame or a list of lists of data frames extracted using get_mat_data().
+#'                If a list, each sublist should contain two or more data frames to be summed.
+#' @param categories A list of categories defining the numbers between 1 and 256.
+#' @returns A list of data frames where row names represent pixels that will
+#'    transition and column names represent the class they will transition to.
+#' @import dplyr
+#' @export
+get_trans_mat <- function(df_list, categories) {
+  # If input is a single data frame, convert it to a list containing one list
+  if (is.data.frame(df_list)) {
+    df_list <- list(list(df_list))
+  }
+
+  # If input is a list of data frames (not nested), wrap it in an additional list
+  if (is.list(df_list) && all(sapply(df_list, is.data.frame))) {
+    df_list <- list(df_list)
+  }
+
+  # Check if the input is a properly formatted list of lists of data frames
+  if (length(df_list) == 0 || !all(sapply(df_list, function(x) all(sapply(x, is.data.frame))))) {
+    stop("Input must be a single data frame, a list of data frames, or a list of lists containing data frames")
+  }
+
+  # Flatten the categories and check for duplicates and completeness
+  all_category_numbers <- unlist(categories)
+
+  # Check for duplicates
+  if (any(duplicated(all_category_numbers))) {
+    stop("There are duplicate numbers in the list of vectors describing the categories")
+  }
+
+  # Check for completeness (1 to 256)
+  if (!all(sort(all_category_numbers) == 1:256)) {
+    stop("Not all numbers between 1 and 256 are included in the list of vectors describing the categories")
+  }
+
+  # Initialize a list to store the results by year
+  result_list <- vector("list", length(df_list[[1]]))
+  names(result_list) <- names(df_list[[1]]) # Assign names for each year if applicable
+
+  # Iterate over each year (position in the sublists)
+  for (k in seq_along(result_list)) {
+    # Sum the matrices from all data frames for the same year across states
+    sum_mat <- Reduce(`+`, lapply(df_list, function(x) as.matrix(x[[k]])))
+
+    # Convert the summed matrix back to a data frame
+    df <- as.data.frame(sum_mat)
+
+    # Initialize an empty matrix to store the category sums
+    category_matrix <- matrix(0, nrow = length(categories), ncol = length(categories))
+
+    # Sum rows and columns for each category based on the provided vectors
+    for (i in seq_along(categories)) {
+      for (j in seq_along(categories)) {
+        category_rows <- df %>%
+          slice(categories[[i]]) %>%
+          summarize(across(everything(), sum))
+
+        category_sum <- category_rows %>%
+          select(all_of(categories[[j]])) %>%
+          summarize(across(everything(), sum))
+
+        category_matrix[i, j] <- sum(category_sum)
+      }
+    }
+
+    # Convert the matrix to a data frame
+    df_trans <- as.data.frame(category_matrix)
+
+    # Calculate total and proportions
+    df_trans <- df_trans |>
+      mutate(total = rowSums(across(everything()))) |>
+      mutate(across(-total, ~ . / total))
+
+    # Update row names to be the negative value of the row number
+    rownames(df_trans) <- as.character((1:nrow(df_trans)))
+
+    # Update column names to be the column numbers
+    colnames(df_trans) <- as.character(1:ncol(df_trans))
+
+    # Remove the last column
+    df_trans <- df_trans[, -ncol(df_trans)]
+
+    # Insert a row and column of zeros at the first positions
+    n <- nrow(df_trans) + 1  # Updated number of rows and columns
+    updated_matrix <- matrix(0, nrow = n, ncol = n)
+    updated_matrix[-1, -1] <- as.matrix(df_trans)  # Fill with existing values
+
+    # Convert the updated matrix back to a data frame
+    updated_matrix[1, 1] <- 1
+    df_trans_updated <- as.data.frame(updated_matrix)
+
+    # Update row and column names for the new matrix
+    rownames(df_trans_updated) <- as.character(0:(n - 1))
+    colnames(df_trans_updated) <- as.character(0:(n - 1))
+
+    # Store the resulting data frame for this year
+    result_list[[k]] <- df_trans_updated
+  }
+
+  # Return the list of results
+  return(result_list)
+}
+
+
+
+get_trans_mat_simple <- function(df_list, categories) {
+  # Check if the input is a list of lists of data frames and if it contains data frames
+  if (length(df_list) == 0 || !all(sapply(df_list, function(x) all(sapply(x, is.data.frame))))) {
+    stop("Input must be a list of lists, each containing data frames")
+  }
+
+  # Flatten the categories and check for duplicates and completeness
+  all_category_numbers <- unlist(categories)
+
+  # Check for duplicates
+  if (any(duplicated(all_category_numbers))) {
+    stop("There are duplicate numbers in the list of vectors describing the categories")
+  }
+
+  # Check for completeness (1 to 256)
+  if (!all(sort(all_category_numbers) == 1:256)) {
+    stop("Not all numbers between 1 and 256 are included in the list of vectors describing the categories")
+  }
+
+  # Initialize a list to store the results by year
+  result_list <- vector("list", length(df_list[[1]]))
+  names(result_list) <- names(df_list[[1]]) # Assign names for each year
+
+  # Iterate over each year (position in the sublists)
+  for (k in seq_along(result_list)) {
+    # Sum the matrices from all data frames for the same year across states
+    sum_mat <- Reduce(`+`, lapply(df_list, function(x) as.matrix(x[[k]])))
+
+    # Initialize an empty matrix to store the category sums
+    category_matrix <- matrix(0, nrow = length(categories), ncol = length(categories))
+
+    # Sum rows and columns for each category based on the provided vectors
+    for (i in seq_along(categories)) {
+      for (j in seq_along(categories)) {
+        category_rows <- sum_mat[categories[[i]], , drop = FALSE]
+        category_matrix[i, j] <- sum(category_rows[, categories[[j]], drop = FALSE])
+      }
+    }
+
+    # Add totals row and column
+    total_row <- rowSums(category_matrix)
+    total_col <- colSums(category_matrix)
+    total_sum <- sum(total_row) # Grand total
+
+    # Expand the matrix to include totals
+    category_matrix <- rbind(category_matrix, total_col)
+    category_matrix <- cbind(category_matrix, c(total_row, total_sum))
+
+    # Convert to a data frame
+    df_trans <- as.data.frame(category_matrix)
+
+    # Set row and column names
+    rownames(df_trans) <- c(paste0("Cat_", seq_along(categories)), "Total")
+    colnames(df_trans) <- c(paste0("Cat_", seq_along(categories)), "Total")
+
     # Store the resulting data frame for this year
     result_list[[k]] <- df_trans
   }
 
   # Return the list of results
-  # insert a row of zeros / column of zeros to each matrix
   return(result_list)
 }
