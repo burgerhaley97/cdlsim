@@ -6,3 +6,4 @@
 ^inst/extdata/extracted_files$
 ^README\.Rmd$
 ^inst/extdata/bl_cdl_90m\.tif$
+^\.github$

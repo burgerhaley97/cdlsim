@@ -1,29 +1,21 @@
----
-output: github_document
----
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "man/figures/README-",
-  out.width = "100%"
-)
-```
 
 # cdlsim
 
 <!-- badges: start -->
+
 [![R-CMD-check](https://github.com/burgerhaley97/cdlsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/burgerhaley97/cdlsim/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-The goal of cdlsim is to simulate USDA CDL data to quantify the sensitivity of metrics calculated on it. The R package landscapemetrics is used to implement popular FRAGSTATS style metrics in R. 
+The goal of cdlsim is to simulate USDA CDL data to quantify the
+sensitivity of metrics calculated on it. The R package landscapemetrics
+is used to implement popular FRAGSTATS style metrics in R.
 
 ## Installation
 
-You can install the development version of cdlsim from [GitHub](https://github.com/) with:
+You can install the development version of cdlsim from
+[GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
@@ -32,10 +24,10 @@ devtools::install_github("burgerhaley97/cdlsim")
 
 ## Example
 
-This is a basic example which shows how a simple landscape would behave in our 
-simulation:
+This is a basic example which shows how a simple landscape would behave
+in our simulation:
 
-```{r example}
+``` r
 library(cdlsim)
  
  # Create a skeleton for the SpatRaster example landscape
@@ -63,8 +55,9 @@ library(cdlsim)
   terra::plot(r, main = "Simple Landscape", axes = FALSE)
 ```
 
+<img src="man/figures/README-example-1.png" width="100%" />
 
-```{r }
+``` r
 # Make transition matrix with with equal probabilities
   n <- 3
   trans_mat <- matrix(1/3, nrow = n, ncol = n)
@@ -75,6 +68,10 @@ library(cdlsim)
   
   # Look at the transition matrix
   print(trans_mat)
+#>           1         2         3
+#> 1 0.3333333 0.3333333 0.3333333
+#> 2 0.3333333 0.3333333 0.3333333
+#> 3 0.3333333 0.3333333 0.3333333
 
   # Simulate the input SpatRaster 5 times
   patch_sim <- simulate_raster_patch(original_raster = r,
@@ -83,5 +80,6 @@ library(cdlsim)
   
   # Look at the results of 5 simulation 
   terra::plot(patch_sim, main = "Five Simulations", axes = FALSE)
-
 ```
+
+<img src="man/figures/README-unnamed-chunk-2-1.png" width="100%" />
