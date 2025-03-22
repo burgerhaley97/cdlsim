@@ -22,7 +22,7 @@ You can install the development version of cdlsim from
 devtools::install_github("burgerhaley97/cdlsim")
 ```
 
-## Example
+## Example Usage
 
 This is a basic example which shows how a simple landscape would behave
 in our simulation:
@@ -79,7 +79,7 @@ library(cdlsim)
                                        iterations = 5)
   
   # Look at the results of 5 simulation 
-  terra::plot(patch_sim, main = "Five Simulations", axes = FALSE)
+  terra::plot(patch_sim, axes = FALSE)
 ```
 
 <img src="man/figures/README-unnamed-chunk-2-1.png" width="100%" />

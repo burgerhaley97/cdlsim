@@ -17,3 +17,212 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(cdlsim)
 ```
+
+## The USDA Cropland Data Layer 
+
+One of the primary tools used in the United States to monitor agricultural land is the Cropland Data Layer (CDL), an annual map created by the United States Department of Agriculture (USDA) from satellite images. While the CDL is highly accurate, the data product is still prone to misclassify certain land use types. These challenges can affect the reliability of any metrics calculated using the data. To address this, we have developed `cdlsim`, which simulates land use changes to quantify the sensitivity of land use metrics to variability in the input data. We demonstrate the general uses of our package through two examples: a simple example using a mock landscape and a real world example in the Bear Lake watershed in Utah.
+
+
+## Package Functions
+
+The two major purposes of our package are to download and format the transition matrices and to simulate the CDL data provided as the input. To accomplish the former, there are three main functions: `download_cdl_mat_files`, `get_mat_data`, and `get_trans_mat`. The first function downloads and unzips folders containing the confusion matrices for all the US states using their zip file's URL. The range of years of data to download and the file path to save the corresponding Excel files can be specified in the arguments. The `get_mat_data` and `get_trans_mat` functions then take the previously downloaded data and extract the files for the states supplied. These functions also read in the tables (formatted as Excel spreadsheets) as matrices, allowing for easier manipulation, formatting, and improving compatibility with the simulation functions.
+
+The second major purpose of `cdlsim` is the simulation function `simulate_raster_rcpp`. Here we simulate class values at the patch level maintaining the spatial integrity and and structure of the landscape. This function takes as input a SpatRaster, a transition matrix, and the desired number of iterations. Several additional arguments can be optionally set. For example, in many cases, it is reasonable to prevent specific pixel values, such as those representing lakes or streams, from transitioning. These values can be included in the `non_trans` argument, ensuring that the corresponding pixels retain their original class. By default, this argument prevents the background class (0) from transitioning, as this class represents areas with no data. Additionally to accommodate larger study areas the simulation function includes a memory-efficient option that is able to handle larger raster files. The user can activate the memory efficient simulation version using the `Fast` argument. By default, `Fast = TRUE`, which is recommended for smaller study areas, such as counties size regions.
+
+
+## What is a Patch?
+
+A patch is defined as a group of connected neighboring cells from the same class. For simulation purposes, adjacent or diagonally connected pixels of the same class are treated as a single patch (i.e., queen adjacency). This definition follows similarly to that of patches in the `landscapemetrics` ensuring compatibility. 
+
+## Installation
+
+You can install the development version of `cdlsim` from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("burgerhaley97/cdlsim")
+```
+
+## The Simple Example
+
+This is a basic example which shows how a simple landscape would behave in our 
+simulation. We start by building a SpatRaster with three different classes each 
+with three 90 by 90 pixel squares.
+
+```{r}
+# Define raster dimensions and classes
+ncol <- 90
+nrow <- 90
+classes <- 3
+
+# Initialize a SpatRaster with the desired dimensions
+r_small <- terra::rast(ncol = ncol, nrow = nrow, vals = NA)
+
+# Assign values in 30x30 blocks for each class
+r_small[1:30, 1:30] <- 1  
+r_small[1:30, 31:60] <- 2  
+r_small[1:30, 61:90] <- 3 
+
+r_small[31:60, 1:30] <- 2  
+r_small[31:60, 31:60] <- 3  
+r_small[31:60, 61:90] <- 1 
+
+r_small[61:90, 1:30] <- 3  
+r_small[61:90, 31:60] <- 1  
+r_small[61:90, 61:90] <- 2  
+
+```
+
+```{r fig.width=7, fig.height=5, fig.align="center"}
+# Show original landscape before simulation
+terra::plot(r_small, axes = FALSE, main = "Simple Landscape")
+
+```
+
+
+
+Next we define the transition matrix which describes the probability that each 
+class has of transitioning to the other classes during simulation. Note that the
+row names represent the original landscape's classes and the column 
+names represent the simulated class values. For example, the first entry below 
+describes the chance that class one patches will transition to class one during simulation.
+
+
+```{r}
+# Define confusion matrix, background not transitioning
+conf_mat <- matrix(1/3, nrow = 3, ncol = 3)
+
+# Assign row and column names
+rownames(conf_mat) <- c("1", "2", "3")
+colnames(conf_mat) <- c("1", "2", "3")
+
+# Print the transition matrix 
+print(conf_mat)
+
+```
+
+Finally we simulate the original landscape five times and  plot the results. 
+
+```{r}
+# Set a random seed for reproducibility 
+set.seed(1891)
+
+# Simulate the example landscape 5 times
+simple_sim <- simulate_raster_patch(original_raster = r_small,
+                                       transition_matrix = conf_mat,
+                                       iterations = 5)
+```
+
+
+```{r fig.width=7, fig.height=5, fig.align="center"}
+# Plot the results
+terra::plot(simple_sim, axes = FALSE)
+```
+
+
+## The Bear Lake Watershed
+
+Here we use the R package `landscapemetrics` to implement popular FRAGSTATS style metrics to demonstrate how `cdlsim` can be used to quantify metric sensitivity to random perturbations introduced through simulation. To illustrate we use the CDL data for the Bear Lake watershed in 2008.
+
+
+```{r}
+# Load the raster
+bl_raster_path <- system.file("extdata/cropped_raster.tif", package="cdlsim")
+bl_raster <- terra::rast(bl_raster_path)
+
+```
+
+
+```{r fig.width=7, fig.height=5, fig.align="center"}
+terra::plot(bl_raster, axes = FALSE, main = "Bear Lake Watershed")
+```
+
+The CDL data for the Bear Lake watershed is reclassified before simulation. 
+
+```{r}
+# Define the values that represent our classes of interest
+non_ag <- c(61:65, 81:83, 87:88, 92, 111:112, 121:124, 131, 141:143, 152, 176, 181, 190, 195)
+alfalfa <- c(36:37)
+major_ag <- c(1, 2, 5, 12, 13, 22:24, 26, 225:226, 228, 234, 236, 238:241, 254)
+all_numbers <- 1:256
+ag <- setdiff(all_numbers, c(non_ag, alfalfa, major_ag))
+
+# reclassify into background = 0, major-ag = 1, alfalfa = 2, non-ag = 3, ag = 4
+cdl_reclass <- terra::app(bl_raster, fun = function(x) {
+  ifelse(is.na(x), 0,
+         ifelse(x %in% major_ag, 1,
+                ifelse(x %in% alfalfa, 2,
+                       ifelse(x %in% non_ag, 3, 4)
+                )
+         )
+  )
+})
+```
+
+
+```{r fig.width=7, fig.height=5, fig.align="center"}
+terra::plot(cdl_reclass, axes = FALSE, main = "Reclassified Landscape")
+```
+
+
+```{r}
+# Get the NASS confusion matrix for Utah in 2008
+mat_file_path <- system.file("extdata/extracted_files", package = "cdlsim")
+
+# Load the matrix data
+bl_mat_data <- get_mat_data(c("UT"))
+
+# List of categories with their corresponding vectors
+cat_5 <- list(non_ag = non_ag, ag = ag, alfalfa = alfalfa, major_ag = major_ag)
+
+# get the confusion matrix for just 2008
+trans_mat_all <- get_trans_mat(bl_mat_data, cat_5)
+trans_mat_5 <- trans_mat_all[[1]]
+
+# Assign row and column names in a single step
+dimnames(trans_mat_5) <- list(as.character(0:4), as.character(0:4))
+```
+
+The real NASS confusion matrix for Utah in 2008. 
+```{r}
+print(trans_mat_5)
+
+```
+
+
+```{r}
+# Simulate the Bear Lake watershed 5 times
+set.seed(1891)
+
+bl_sim <- simulate_raster_patch(original_raster = cdl_reclass,
+                      transition_matrix = trans_mat_5,
+                      non_trans = c(0),
+                      iterations = 5)
+
+```
+
+```{r}
+# Calculate Simpson's Diversity on 100 simulations
+bl_sidi <- landscapemetrics::lsm_l_sidi(bl_sim) |>
+  dplyr::rename(sim_value = value)
+
+
+# Calculate Shannon's and Simpson on the 1000 iter sims and og models
+og_sidi <- landscapemetrics::lsm_l_sidi(cdl_reclass) |>
+  dplyr::rename(og_value = value)
+
+
+# combine the og and sim results into one dataframe
+div_combo_bl <- dplyr::full_join(bl_sidi, og_sidi, dplyr::join_by(metric)) |>
+  dplyr::select(metric, sim_value, og_value)
+
+```
+
+Compare the simulated Simpson's Diversity Index values to the original landscape's values.
+
+```{r}
+# Print the tibble of the simulated versus original landscape values
+print(div_combo_bl)
+
+```
+

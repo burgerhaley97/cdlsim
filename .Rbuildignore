@@ -7,3 +7,5 @@
 ^README\.Rmd$
 ^inst/extdata/bl_cdl_90m\.tif$
 ^\.github$
+^doc$
+^Meta$
