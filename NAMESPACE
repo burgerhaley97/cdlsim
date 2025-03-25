@@ -3,6 +3,7 @@
 export(download_cdl_mat_files)
 export(find_patches)
 export(get_mat_data)
+export(get_mat_data_dep)
 export(get_trans_mat)
 export(simulate_raster_patch)
 import(dplyr)

@@ -39,14 +39,14 @@ download_cdl_mat_files <- function(years, temp_dir = "extracted_files") {
 #' @param state_abbreviation A vector of two-letter abbreviations for US states.
 #' @param file_path The path to the directory where files are stored
 #'    (default is "inst/extdata/extracted_files").
-#' @param verbose The stops the messages from printng to the console.
+#' @param verbose The stops the messages from printing to the console.
 #' @return A named list where each element is a list of data frames representing
 #'    confusion matrices for each state.
 #' @importFrom dplyr intersect union
 #' @importFrom stats na.omit
 #' @import readxl
 #' @export
-get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted_files", verbose = FALSE) {
+get_mat_data_dep <- function(state_abbreviation, file_path = "inst/extdata/extracted_files", verbose = FALSE) {
   # Ensure all state abbreviations are uppercase
   state_abbreviation <- toupper(state_abbreviation)
 
@@ -74,7 +74,6 @@ get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted
       sprintf("CDL_2017_accuracy_assessments/NASS_CDL_%s17_accuracy\\.xlsx$", state_abbrev),
       sprintf("NASS_CDL_%s(1[8-9]|2[0-3])_accuracy\\.xlsx$", state_abbrev) # 2018-2023
     )
-
     # Loop through each file and process it
     for (file in file_list) {
       # Initialize data_file as NULL at the beginning of each iteration
@@ -119,6 +118,104 @@ get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted
   # Return the combined list of all states' data
   return(all_states_data)
 }
+
+
+#' Function to retrieve confusion matrix data for multiple states of interest
+#' @param state_abbreviation A vector of two-letter abbreviations for US states.
+#' @param file_path The path to the directory where files are stored
+#'    (default is "inst/extdata/extracted_files").
+#' @param verbose The stops the messages from printing to the console.
+#' @return A named list where each element is a list of data frames representing
+#'    confusion matrices for each state.
+#' @importFrom dplyr intersect union
+#' @importFrom stats na.omit
+#' @import readxl
+#' @export
+get_mat_data <- function(state_abbreviation, file_path = "inst/extdata/extracted_files", verbose = FALSE) {
+  state_abbreviation <- toupper(state_abbreviation)
+
+  # Track whether this is a direct file input
+  single_file_input <- FALSE
+
+  # Resolve system file path if default
+  if (file_path == "inst/extdata/extracted_files") {
+    file_path <- system.file("extdata/extracted_files", package = "cdlsim")
+  }
+
+  # Detect single file input
+  if (file.exists(file_path) && grepl("\\.xlsx$", file_path)) {
+    file_list <- file_path
+    single_file_input <- TRUE
+  } else {
+    file_list <- list.files(path = file_path, recursive = TRUE, full.names = TRUE, pattern = "\\.xlsx$")
+  }
+
+  subset_data_frame <- function(df) {
+    df[1:256, 3:258]
+  }
+
+  process_state_files <- function(state_abbrev) {
+    state_data <- list()
+
+
+    if (single_file_input && file.exists(file_list)) {
+      if (verbose) message("Using provided file directly: ", file_list)
+      data <- readxl::read_excel(file_list, sheet = 3, .name_repair = "minimal")
+      data <- subset_data_frame(data)
+
+      return(data)
+    }
+
+    # Otherwise use pattern matching
+    patterns <- list(
+      sprintf("CDL_200[8-9]_accuracy_assessments/NASS_CDL_%s[0-9]{2}_accuracy_30m\\.xlsx$", state_abbrev),
+      sprintf("CDL_201[0-5]_accuracy_assessments/NASS_CDL_%s[0-9]{2}_accuracy\\.xlsx$", state_abbrev),
+      sprintf("CDL_2016_accuracy_assessments/unbuffered_validation/NASS_CDL_%s16_accuracy_unbuf\\.xlsx$", state_abbrev),
+      sprintf("CDL_2017_accuracy_assessments/NASS_CDL_%s17_accuracy\\.xlsx$", state_abbrev),
+      sprintf("NASS_CDL_%s(1[8-9]|2[0-3])_accuracy\\.xlsx$", state_abbrev),
+      sprintf("NASS_CDL_%s[0-9]{2}_accuracy_30m\\.xlsx$", state_abbrev)  # catch-all
+    )
+
+    for (file in file_list) {
+      data_file <- NULL
+      file_basename <- basename(file)
+
+      for (pattern in patterns) {
+        if (grepl(pattern, file) || grepl(pattern, file_basename)) {
+          data_file <- file
+          break
+        }
+      }
+
+      if (!is.null(data_file) && file.exists(data_file)) {
+        if (verbose) message("Processing: ", data_file)
+        data <- readxl::read_excel(data_file, sheet = 3, .name_repair = "minimal")
+        data <- subset_data_frame(data)
+
+        year_match <- sub(".*([0-9]{2})_accuracy.*\\.xlsx$", "\\1", basename(data_file))
+        year <- ifelse(length(year_match) > 0, year_match, "Unknown Year")
+
+        state_data[[year]] <- data
+      } else if (verbose) {
+        message("File does not match pattern or does not exist: ", file)
+      }
+    }
+
+    return(state_data)
+  }
+
+
+  if (single_file_input) {
+    return(process_state_files(state_abbreviation[1]))
+  }
+
+
+  all_states_data <- Map(process_state_files, state_abbreviation)
+  names(all_states_data) <- state_abbreviation
+
+  return(all_states_data)
+}
+
 
 ## update for the case when the list of categories is the same as the length list of
 # original classes

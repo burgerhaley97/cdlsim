@@ -127,9 +127,7 @@ Here we use the R package `landscapemetrics` to implement popular FRAGSTATS styl
 
 ```{r}
 # Load the raster
-bl_raster_path <- system.file("extdata/cropped_raster.tif", package="cdlsim")
-bl_raster <- terra::rast(bl_raster_path)
-
+bl_raster <- terra::rast(system.file("extdata/cropped_raster.tif", package="cdlsim"))
 ```
 
 
@@ -167,26 +165,13 @@ terra::plot(cdl_reclass, axes = FALSE, main = "Reclassified Landscape")
 
 ```{r}
 # Get the NASS confusion matrix for Utah in 2008
-mat_file_path <- system.file("extdata/extracted_files", package = "cdlsim")
-
-# Load the matrix data
-bl_mat_data <- get_mat_data(c("UT"))
-
-# List of categories with their corresponding vectors
-cat_5 <- list(non_ag = non_ag, ag = ag, alfalfa = alfalfa, major_ag = major_ag)
-
-# get the confusion matrix for just 2008
-trans_mat_all <- get_trans_mat(bl_mat_data, cat_5)
-trans_mat_5 <- trans_mat_all[[1]]
-
-# Assign row and column names in a single step
-dimnames(trans_mat_5) <- list(as.character(0:4), as.character(0:4))
+trans_mat_08 <- readRDS(system.file("extdata/trans_mat_08.rds", 
+                                    package = "cdlsim"))
 ```
 
-The real NASS confusion matrix for Utah in 2008. 
-```{r}
-print(trans_mat_5)
 
+```{r}
+print(trans_mat_08)
 ```
 
 
@@ -195,11 +180,16 @@ print(trans_mat_5)
 set.seed(1891)
 
 bl_sim <- simulate_raster_patch(original_raster = cdl_reclass,
-                      transition_matrix = trans_mat_5,
-                      non_trans = c(0),
-                      iterations = 5)
+                      transition_matrix = trans_mat_08,
+                      non_trans = c(0), iterations = 5)
 
 ```
+
+```{r fig.width=7, fig.height=5, fig.align="center"}
+# look at the simulations
+terra::plot(bl_sim)
+```
+
 
 ```{r}
 # Calculate Simpson's Diversity on 100 simulations
